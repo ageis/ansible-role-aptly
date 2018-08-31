@@ -1,0 +1,35 @@
+---
+- name: Install GPG.
+  apt:
+    name: gnupg
+    state: present
+
+- name: Upload repository key if available.
+  copy:
+    src: "{{ aptly_local_directory }}/{{ aptly_secret_key_file }}"
+    dest: /tmp/aptly.asc
+    owner: "{{ aptly_user }}"
+    group: "{{ aptly_user }}"
+    mode: "0400"
+  when: aptly_secret_key_file is defined and aptly_secret_key_file != ''
+
+- name: Upload repository key from secret vars if available.
+  copy:
+    dest: /tmp/aptly.asc
+    content: "{{ aptly_secret_key_content }}"
+    owner: "{{ aptly_user }}"
+    group: "{{ aptly_user }}"
+    mode: "0400"
+  when: aptly_secret_key_content is defined and aptly_secret_key_content != ''
+
+- name: Import repository key to GnuPG.
+  command: gpg --import /tmp/aptly.asc
+  become_user: "{{ aptly_user }}"
+  register: gpg_output
+  changed_when: "'secret key imported' in gpg_output.stderr"
+  failed_when: gpg_output.rc != 0 and 'already in secret keyring' not in gpg_output.stderr
+
+- name: Remove secret key from temporary dir on remote host.
+  file:
+    path: /tmp/aptly.asc
+    state: absent

@@ -1,0 +1,20 @@
+---
+- name: Configure apt repository server.
+  hosts: all
+  become: yes
+  pre_tasks:
+    - name: Register list of Debian packages to publish.
+      local_action: shell ls -1t files/aptly/*.deb | head -1
+      changed_when: false
+      become: no
+      register: aptly_deb_packages
+      tags: repo
+  roles:
+    - role: aptly
+      aptly_nginx_enable_ssl: true
+      aptly_ssl_cert_path: "{{ zcash_ssl_combined_filename }}"
+      aptly_ssl_key_path: "{{ zcash_ssl_key_filename }}"
+      aptly_deb_packages: "files/aptly/zcash-1.0.10-amd64.deb"
+      aptly_repo_snapshot: v1.0.10
+      aptly_disable_signing: true
+      tags: aptly

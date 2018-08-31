@@ -1,0 +1,22 @@
+---
+aptly_directory: /srv/aptly
+aptly_user: aptly
+aptly_virtualhost: "{{ ansible_fqdn }}"
+aptly_nginx_enable_ssl: false
+aptly_ssl_cert_path: ''
+aptly_ssl_key_path: ''
+aptly_local_directory: files/aptly
+aptly_secret_key_file: ''
+aptly_disable_signing: true
+
+# Expects a multi-line string containing an OpenPGP armored private key.
+aptly_secret_key_content: ''
+
+aptly_repo_name: misc
+aptly_repo_distribution: stretch
+aptly_repo_comment: Miscellaneous package repository 
+aptly_repo_arch: amd64
+aptly_repo_snapshot: v1.0.0
+
+aptly_deb_packages: []
+

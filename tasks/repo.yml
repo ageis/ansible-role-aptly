@@ -1,0 +1,96 @@
+---
+- name: List current repositories.
+  command: aptly repo list
+  changed_when: false
+  become: yes
+  become_user: "{{ aptly_user }}"
+  register: aptly_local_repositories
+
+- name: List current snapshots.
+  command: aptly snapshot list
+  changed_when: false
+  become: yes
+  become_user: "{{ aptly_user }}"
+  register: aptly_snapshots
+
+- name: List currently published repositories.
+  command: aptly publish list
+  changed_when: false
+  become: yes
+  become_user: "{{ aptly_user }}"
+  register: aptly_published_repositories
+
+- name: Create repository if it does not exist.
+  command: >
+    aptly repo create
+    --distribution "{{ aptly_repo_distribution|default('trusty') }}"
+    --comment "{{ aptly_repo_comment|default('') }}"
+    --component "{{ aptly_repo_component|default('main') }}"
+    "{{ aptly_repo_name }}"
+  become: yes
+  become_user: "{{ aptly_user }}"
+  when: aptly_repo_name not in aptly_local_repositories.stdout
+
+- name: List current packages.
+  command: aptly repo show -with-packages=true {{ aptly_repo_name }}
+  changed_when: false
+  become: yes
+  become_user: "{{ aptly_user }}"
+  register: aptly_packages_result
+
+- name: Upload packages.
+  copy:
+    src: "{{ item }}"
+    dest: /tmp/
+  become: yes
+  with_items: "{{ aptly_deb_packages }}"
+
+# Read the Debian control fields so we can compare the intended package
+# fields with what Aptly already knows about. That way we can skip
+# adding the file to the repository if it's already present.
+- name: Inspect package field names.
+  shell: >
+    dpkg --field /tmp/{{ item|basename }} Package Version Architecture
+    | awk '{ print $2 }'
+  changed_when: false
+  with_items: "{{ aptly_deb_packages }}"
+  register: aptly_package_field_results
+
+- name: Add the new .deb files.
+  command: aptly repo add {{ aptly_repo_name }} /tmp/{{ item.item|basename }}
+  become: yes
+  become_user: "{{ aptly_user }}"
+  # Aptly displays package results in the format "<Package>_<Version>_<Architecture>",
+  # so we'll join the control field values with underscores to compare.
+  when: item.stdout_lines|join('_') not in aptly_packages_result.stdout
+  with_items:
+    - "{{ aptly_package_field_results.results }}"
+
+- name: Create a new snapshot.
+  command: aptly snapshot create "{{ aptly_repo_snapshot }}" from repo "{{ aptly_repo_name }}"
+  become: yes
+  become_user: "{{ aptly_user }}"
+  when: aptly_repo_snapshot not in aptly_snapshots.stdout
+
+- name: Publish the snapshot if the repository is brand new.
+  command: >
+    aptly publish snapshot
+    --distribution "{{ aptly_repo_distribution|default('trusty') }}"
+    --component "{{ aptly_repo_component|default('main') }}"
+    --architectures "{{ aptly_repo_arch|default('amd64') }}"
+    {% if aptly_disable_signing == true %}--skip-signing{% endif %}
+    "{{ aptly_repo_snapshot }}"
+  become: yes
+  become_user: "{{ aptly_user }}"
+  when: aptly_repo_distribution not in aptly_published_repositories.stdout
+
+- name: Ensure the latest snapshot is published.
+  command: >
+    aptly publish switch
+    --component "{{ aptly_repo_component|default('main') }}"
+    {% if aptly_disable_signing == true %}--skip-signing{% endif %}
+    "{{ aptly_repo_distribution|default('trusty') }}"
+    "{{ aptly_repo_snapshot }}"
+  become: yes
+  become_user: "{{ aptly_user }}"
+  tags: switch

@@ -1,0 +1,21 @@
+---
+# Setting these permissions tasks to report unchanged, since we'll trust
+# find to do the right thing. Any non-zero exit code will cause the task to
+# fail. Another option is to register results from the `find` module and loop
+# over them to set permissions per-file and per-directory. That causes the task
+# to take several minutes, though, and the output is so verbose it's barely useful.
+- name: Set ownership for aptly directory.
+  command: chown aptly:www-data -R "{{ aptly_directory }}"
+  changed_when: false
+
+- name: Set permissions on aptly directory.
+  command: >
+    find "{{ aptly_directory }}"
+    -type {{ item.type }}
+    -exec chmod {{ item.mode }} {} +
+  changed_when: false
+  with_items:
+    - type: d
+      mode: "750"
+    - type: f
+      mode: "640"

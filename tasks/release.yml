@@ -1,0 +1,15 @@
+---
+- name: Fetch Release file back to Ansible controller.
+  fetch:
+    src: "{{ aptly_directory }}/public/dists/{{ aptly_repo_distribution|default('trusty') }}/Release"
+    dest: "{{ aptly_local_directory }}/"
+    mode: "0600"
+    flat: yes
+    fail_on_missing: yes
+
+- name: Remind user to sign the repository.
+  debug:
+    msg: >-
+      Remember to sign the new Release with GPG, otherwise the repository
+      won't be valid. The Release file can be found at:
+      {{ aptly_local_directory }}/Release .

@@ -1,0 +1,20 @@
+---
+- include: aptly.yml
+  tags: aptly
+
+- include: gpg.yml
+  tags: gpg
+  when: not aptly_disable_signing
+
+- include: nginx.yml
+  tags: nginx
+
+- include: repo.yml
+  tags: repo
+
+- include: perms.yml
+  tags: perms
+
+- include: release.yml
+  tags: release
+  when: aptly_disable_signing

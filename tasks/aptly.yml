@@ -1,0 +1,54 @@
+---
+- name: Add GPG key for aptly.
+  apt_key:
+    keyserver: keys.gnupg.net
+    id: 9E3E53F19C7DE460
+  tags: gpg
+
+- name: Install aptly repo.
+  copy:
+    src: aptly.list
+    dest: /etc/apt/sources.list.d/
+  register: add_repo
+
+- name: Update apt repo.
+  apt:
+    update_cache: yes
+  when: add_repo.changed
+
+- name: Install aptly.
+  apt:
+    name: aptly
+    state: present
+    force: yes
+
+- name: Create aptly user.
+  user:
+    name: "{{ aptly_user }}"
+    shell: /bin/false
+    home: "{{ aptly_directory }}"
+    system: yes
+
+- name: Ensure aptly directory exists.
+  file:
+    path: "{{ aptly_directory }}"
+    state: directory
+    mode: "2750"
+    owner: "{{ aptly_user }}"
+    group: www-data
+
+- name: Write aptly config.
+  template:
+    src: aptly.conf.j2
+    dest: /etc/aptly.conf
+    mode: "0644"
+    owner: root
+    group: root
+
+- name: Create local directory for storing debs and Release file.
+  become: no
+  local_action:
+    module: file
+    path: "{{ aptly_local_directory }}"
+    state: directory
+    mode: "0700"
